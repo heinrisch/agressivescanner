@@ -11,16 +11,18 @@ import android.app.Activity;
 import android.util.Log;
 import android.view.Menu;
 import android.view.View;
-import android.widget.Button;
 import android.widget.ListView;
 
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.Iterator;
 import java.util.List;
 
 public class MainActivity extends Activity {
 
-  List<ScanResult> results;
+  BroadcastReceiver wifiScanResultReceiver;
+
+  List<ScanResult> results = Collections.emptyList();
 
   ScanResultListAdapter adapter;
   ListView scanResultsListView;
@@ -32,34 +34,73 @@ public class MainActivity extends Activity {
 
     findViewById(R.id.scan).setOnClickListener(getOnScanClickListener());
 
-    scanResultsListView = (ListView) findViewById(R.id.accesspointlist);
+    findViewById(R.id.startservice).setOnClickListener(getOnStartServiceClickListener());
+    findViewById(R.id.stopservice).setOnClickListener(getOnStopServiceClickListener());
 
-    registerWifiScanResultReceiver();
+    scanResultsListView = (ListView) findViewById(R.id.accesspointlist);
 
   }
 
+  private View.OnClickListener getOnStopServiceClickListener() {
+    return new View.OnClickListener() {
+      @Override
+      public void onClick(View view) {
+        Context context = MainActivity.this;
+        Intent service = new Intent(context, ScannerService.class);
+        context.stopService(service);
+      }
+    };
+  }
+
+  private View.OnClickListener getOnStartServiceClickListener() {
+    return new View.OnClickListener() {
+      @Override
+      public void onClick(View view) {
+        Context context = MainActivity.this;
+        Intent service = new Intent(context, ScannerService.class);
+        context.startService(service);
+      }
+    };
+  }
+
   private void registerWifiScanResultReceiver() {
-    registerReceiver(new BroadcastReceiver() {
+    wifiScanResultReceiver = new BroadcastReceiver() {
       @Override
       public void onReceive(Context c, Intent intent) {
-        results = getWifi().getScanResults();
+        synchronized (results) {
+          results = getWifi().getScanResults();
 
-        for(ScanResult res : results){
-          Log.e("Got Result:", res.SSID + " " + res.capabilities + " " + res.level);
-        }
-
-        Iterator<ScanResult> it = results.iterator();
-
-        while (it.hasNext()){
-          ScanResult sr = it.next();
-          if(sr.capabilities.contains("WPA") || sr.capabilities.contains("WEP")){
-            it.remove();
+          for (ScanResult res : results) {
+            Log.e("Got Result:", res.SSID + " " + res.capabilities + " " + res.level);
           }
-        }
 
-        scanResultsListView.setAdapter(new ScanResultListAdapter(MainActivity.this, results));
+          Iterator<ScanResult> it = results.iterator();
+
+          while (it.hasNext()) {
+            ScanResult sr = it.next();
+            if (sr.capabilities.contains("WPA") || sr.capabilities.contains("WEP")) {
+              it.remove();
+            }
+          }
+
+          scanResultsListView.setAdapter(new ScanResultListAdapter(MainActivity.this, results));
+        }
       }
-    }, new IntentFilter(WifiManager.SCAN_RESULTS_AVAILABLE_ACTION));
+    };
+
+    registerReceiver(wifiScanResultReceiver, new IntentFilter(WifiManager.SCAN_RESULTS_AVAILABLE_ACTION));
+  }
+
+  @Override
+  protected void onStart() {
+    super.onStart();
+    registerWifiScanResultReceiver();
+  }
+
+  @Override
+  protected void onPause() {
+    super.onPause();
+    unregisterReceiver(wifiScanResultReceiver);
   }
 
   private View.OnClickListener getOnScanClickListener() {
@@ -78,8 +119,8 @@ public class MainActivity extends Activity {
     return true;
   }
 
-  public WifiManager getWifi(){
-    return  (WifiManager) getSystemService(Context.WIFI_SERVICE);
+  public WifiManager getWifi() {
+    return (WifiManager) getSystemService(Context.WIFI_SERVICE);
   }
 
 }
