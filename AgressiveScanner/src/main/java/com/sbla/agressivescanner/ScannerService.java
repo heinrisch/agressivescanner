@@ -76,8 +76,8 @@ public class ScannerService extends Service {
       if (results.size() > 0) {
         handler.post(connector);
       } else {
-        handler.removeCallbacks(scanner);
-        handler.postDelayed(scanner, 1000 * 10);
+        //handler.removeCallbacks(scanner);
+        //handler.postDelayed(scanner, 1000 * 10);
       }
     }
   };
@@ -165,7 +165,7 @@ public class ScannerService extends Service {
         getWifi().startScan();
         showNotification("Scan Started!", "", false);
       }
-      handler.postDelayed(this, 15 * 1000);
+      handler.postDelayed(this, 30 * 1000);
     }
   };
 
