@@ -56,31 +56,32 @@ public class ScannerService extends Service {
   final BroadcastReceiver wifiScanResultReceiver = new BroadcastReceiver() {
     @Override
     public void onReceive(Context c, Intent intent) {
-      synchronized (results) {
-        results = getWifi().getScanResults();
-
-        for (ScanResult res : results) {
-          Log.e("Got Result:", res.SSID + " " + res.capabilities + " " + res.level);
-        }
-
-        Iterator<ScanResult> it = results.iterator();
-
-        while (it.hasNext()) {
-          ScanResult sr = it.next();
-          if (sr.capabilities.contains("WPA") || sr.capabilities.contains("WEP")) {
-            it.remove();
-          }
-        }
-      }
-
-      if (results.size() > 0) {
-        handler.post(connector);
-      } else {
-        //handler.removeCallbacks(scanner);
-        //handler.postDelayed(scanner, 1000 * 10);
-      }
+      handleNewScanResult();
     }
   };
+
+  private void handleNewScanResult() {
+    synchronized (results) {
+      results = getWifi().getScanResults();
+
+      for (ScanResult res : results) {
+        Log.e("Got Result:", res.SSID + " " + res.capabilities + " " + res.level);
+      }
+
+      Iterator<ScanResult> it = results.iterator();
+
+      while (it.hasNext()) {
+        ScanResult sr = it.next();
+        if (sr.capabilities.contains("WPA") || sr.capabilities.contains("WEP")) {
+          it.remove();
+        }
+      }
+    }
+
+    if (results.size() > 0) {
+      handler.post(connector);
+    }
+  }
 
   final BroadcastReceiver wifiConnectionResultReceiver = new BroadcastReceiver() {
     @Override
@@ -95,7 +96,6 @@ public class ScannerService extends Service {
       } else {
         handler.post(scanner);
       }
-
     }
   };
 
@@ -111,7 +111,7 @@ public class ScannerService extends Service {
       public void run() {
         HttpURLConnection urlConnection = null;
         try {
-          URL url = new URL(mWalledGardenUrl); // "http://clients3.google.com/generate_204"
+          URL url = new URL(mWalledGardenUrl);
           urlConnection = (HttpURLConnection) url.openConnection();
           urlConnection.setInstanceFollowRedirects(false);
           urlConnection.setConnectTimeout(15 * 1000);
@@ -120,9 +120,9 @@ public class ScannerService extends Service {
           urlConnection.getInputStream();
 
           if (urlConnection.getResponseCode() != 204) {
-            vibrate(100);
+            vibrate(100); //Need to log in to use hotspot
           } else {
-            vibrate(1000);
+            vibrate(1000); //Ready to go!
           }
 
           Log.e("Connection result:", "Connection result: " + urlConnection.getResponseCode());
@@ -136,7 +136,6 @@ public class ScannerService extends Service {
         }
       }
     }).start();
-
   }
 
   private void vibrate(final long millis) {
@@ -171,36 +170,39 @@ public class ScannerService extends Service {
 
   final Runnable connector = new Runnable() {
     public void run() {
-      if (!getWifi().getConnectionInfo().getSupplicantState().equals(SupplicantState.COMPLETED)) {
-        synchronized (results) {
-          Collections.sort(results, new Comparator<ScanResult>() {
-            @Override
-            public int compare(ScanResult s1, ScanResult s2) {
-              return Integer.valueOf(s1.level).compareTo(s2.level);
-            }
-          });
+      connectToBestHotspot();
+    }
+  };
 
-          showNotification(results);
+  private void connectToBestHotspot() {
+    if (!getWifi().getConnectionInfo().getSupplicantState().equals(SupplicantState.COMPLETED)) {
+      synchronized (results) {
+        Collections.sort(results, new Comparator<ScanResult>() {
+          @Override
+          public int compare(ScanResult s1, ScanResult s2) {
+            return Integer.valueOf(s1.level).compareTo(s2.level);
+          }
+        });
 
-          if (results.size() > 0) {
-            ScanResult best = results.get(0);
-            WifiConfiguration config = new WifiConfiguration();
-            config.SSID = "\"" + best.SSID + "\"";
-            config.allowedKeyManagement.set(WifiConfiguration.KeyMgmt.NONE);
-            getWifi().addNetwork(config);
+        showNotification(results);
 
-            List<WifiConfiguration> list = getWifi().getConfiguredNetworks();
-            for (WifiConfiguration conf : list) {
-              if (conf.SSID != null && conf.SSID.contains(best.SSID)) {
-                getWifi().enableNetwork(conf.networkId, true);
-              }
+        if (results.size() > 0) {
+          ScanResult best = results.get(0);
+          WifiConfiguration config = new WifiConfiguration();
+          config.SSID = "\"" + best.SSID + "\"";
+          config.allowedKeyManagement.set(WifiConfiguration.KeyMgmt.NONE);
+          getWifi().addNetwork(config);
+
+          List<WifiConfiguration> list = getWifi().getConfiguredNetworks();
+          for (WifiConfiguration conf : list) {
+            if (conf.SSID != null && conf.SSID.contains(best.SSID)) {
+              getWifi().enableNetwork(conf.networkId, true);
             }
           }
-
         }
       }
     }
-  };
+  }
 
   public void showNotification(String message, String submessage, boolean greenflash) {
     NotificationCompat.Builder mBuilder =

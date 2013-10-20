@@ -10,6 +10,13 @@
               android:orientation="vertical"
               android:gravity="center_horizontal">
 
+    <TextView
+            android:text="Start the service and it will automatically connect to open Wifi hotspots. As long as the service is running it will be visible in the notification area."
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:gravity="center"
+            android:padding="5dp"/>
+
     <Button
             android:id="@+id/startservice"
             android:gravity="center"
@@ -23,17 +30,5 @@
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:text="Stop Service"/>
-
-    <Button
-            android:id="@+id/scan"
-            android:gravity="center"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:text="Scan"/>
-
-
-    <ListView android:id="@+id/accesspointlist"
-              android:layout_width="match_parent"
-              android:layout_height="wrap_content"/>
 
 </LinearLayout>
